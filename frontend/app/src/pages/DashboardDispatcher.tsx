@@ -9,7 +9,13 @@ interface Mission {
   adresseDepart: string;
   adresseArrivee: string;
   status: string;
-  createdAt: string;
+}
+
+interface User {
+  id: number;
+  nom: string;
+  prenom: string;
+  role: string;
 }
 
 const menuItems = [
@@ -33,7 +39,9 @@ const statusColor: Record<string, string> = {
 
 export default function DashboardDispatcher() {
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [chauffeurs, setChauffeurs] = useState<User[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [filtre, setFiltre] = useState('Tous');
   const [form, setForm] = useState({ titre: '', adresseDepart: '', adresseArrivee: '' });
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -45,7 +53,13 @@ export default function DashboardDispatcher() {
       .catch(() => navigate('/login'));
   };
 
-  useEffect(() => { fetchMissions(); }, []);
+  const fetchChauffeurs = () => {
+    axios.get('http://localhost:4000/users', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => setChauffeurs(res.data.filter((u: User) => u.role === 'chauffeur')));
+  };
+
+  useEffect(() => { fetchMissions(); fetchChauffeurs(); }, []);
 
   const handleCreate = async () => {
     if (!form.titre || !form.adresseDepart || !form.adresseArrivee) return;
@@ -56,6 +70,25 @@ export default function DashboardDispatcher() {
     setShowForm(false);
     fetchMissions();
   };
+
+  const handleStatusChange = async (id: number, status: string) => {
+    await axios.patch(`http://localhost:4000/missions/${id}/status`,
+      { status },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    fetchMissions();
+  };
+
+  const filtreToStatus: Record<string, string> = {
+    'En attente': 'en_attente',
+    'En cours': 'en_cours',
+    'Terminée': 'terminee',
+    'Annulée': 'annulee',
+  };
+
+  const missionsFiltrees = filtre === 'Tous'
+    ? missions
+    : missions.filter(m => m.status === filtreToStatus[filtre]);
 
   const enAttente = missions.filter(m => m.status === 'en_attente').length;
   const enCours = missions.filter(m => m.status === 'en_cours').length;
@@ -99,19 +132,19 @@ export default function DashboardDispatcher() {
               placeholder="Titre de la mission"
               value={form.titre}
               onChange={e => setForm({ ...form, titre: e.target.value })}
-              className="border border-stone-300 rounded px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-orange-500"
+              className="border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-orange-500"
             />
             <input
               placeholder="Adresse de départ"
               value={form.adresseDepart}
               onChange={e => setForm({ ...form, adresseDepart: e.target.value })}
-              className="border border-stone-300 rounded px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-orange-500"
+              className="border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-orange-500"
             />
             <input
               placeholder="Adresse d'arrivée"
               value={form.adresseArrivee}
               onChange={e => setForm({ ...form, adresseArrivee: e.target.value })}
-              className="border border-stone-300 rounded px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-orange-500"
+              className="border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-orange-500"
             />
             <div className="flex gap-2">
               <button onClick={handleCreate} className="bg-orange-700 text-white text-sm px-4 py-2 rounded hover:bg-orange-800">
@@ -125,6 +158,22 @@ export default function DashboardDispatcher() {
         </div>
       )}
 
+      <div className="flex gap-2 mb-4">
+        {['Tous', 'En attente', 'En cours', 'Terminée', 'Annulée'].map(f => (
+          <button
+            key={f}
+            onClick={() => setFiltre(f)}
+            className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+              filtre === f
+                ? 'bg-orange-700 text-white border-orange-700'
+                : 'bg-white text-stone-600 border-stone-200 hover:border-orange-300'
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white border border-stone-200 rounded overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -133,18 +182,45 @@ export default function DashboardDispatcher() {
               <th className="text-left px-4 py-3 text-stone-500 font-medium">Départ</th>
               <th className="text-left px-4 py-3 text-stone-500 font-medium">Arrivée</th>
               <th className="text-left px-4 py-3 text-stone-500 font-medium">Statut</th>
+              <th className="text-left px-4 py-3 text-stone-500 font-medium">Chauffeur</th>
+              <th className="text-left px-4 py-3 text-stone-500 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {missions.map(m => (
+            {missionsFiltrees.map(m => (
               <tr key={m.id} className="border-b border-stone-100 hover:bg-stone-50">
                 <td className="px-4 py-3 text-stone-800 font-medium">{m.titre}</td>
                 <td className="px-4 py-3 text-stone-600">{m.adresseDepart}</td>
                 <td className="px-4 py-3 text-stone-600">{m.adresseArrivee}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${statusColor[m.status] || 'bg-stone-100 text-stone-600'}`}>
-                    {statusLabel[m.status] || m.status}
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${statusColor[m.status]}`}>
+                    {statusLabel[m.status]}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    defaultValue=""
+                    className="text-xs border border-stone-200 rounded px-2 py-1 text-stone-600 focus:outline-none focus:border-orange-400"
+                  >
+                    <option value="" disabled>Assigner...</option>
+                    {chauffeurs.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.prenom} {c.nom}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    value={m.status}
+                    onChange={e => handleStatusChange(m.id, e.target.value)}
+                    className="text-xs border border-stone-200 rounded px-2 py-1 text-stone-600 focus:outline-none focus:border-orange-400"
+                  >
+                    <option value="en_attente">En attente</option>
+                    <option value="en_cours">En cours</option>
+                    <option value="terminee">Terminée</option>
+                    <option value="annulee">Annulée</option>
+                  </select>
                 </td>
               </tr>
             ))}

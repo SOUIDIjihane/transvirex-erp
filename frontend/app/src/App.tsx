@@ -7,8 +7,10 @@ import DashboardChauffeur from './pages/DashboardChauffeur';
 import DashboardDispatcher from './pages/DashboardDispatcher';
 import DashboardFacturation from './pages/DashboardFacturation';
 import DashboardDirection from './pages/DashboardDirection';
+import Rapports from './pages/Rapports';
 
-function PrivateRoute({ children }: { children: React.ReactElement }) {  const token = localStorage.getItem('token');
+function PrivateRoute({ children }: { children: React.ReactElement }) {
+  const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
 }
 
@@ -30,6 +32,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<PrivateRoute><RoleRoute /></PrivateRoute>} />
         <Route path="/missions" element={<PrivateRoute><Missions /></PrivateRoute>} />
+        <Route path="/factures" element={<PrivateRoute><DashboardFacturation /></PrivateRoute>} />
+        <Route path="/rapports" element={<PrivateRoute><Rapports /></PrivateRoute>} />
+        <Route path="/historique" element={<PrivateRoute><DashboardChauffeur /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
